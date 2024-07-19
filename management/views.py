@@ -6,6 +6,7 @@ from drf_yasg import openapi
 from rest_framework.views import APIView
 from .models import Management
 from login.utils.decorators import jwt_required
+from .serializers import ManagementSerializer
 # Create your views here.
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -21,8 +22,8 @@ class ManagementView(APIView):
             management = Management.objects.all()
             if not management:
                 return JsonResponse({'data': [], 'success': True}, status=200)
-            management_json = [m.to_json() for m in management]
-            return JsonResponse({'data': management_json, 'success': True}, status=200, safe=False)
+            serializer = ManagementSerializer(management, many=True)
+            return JsonResponse({'data': serializer.data, 'success': True}, status=200, safe=False)
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=500)
 
@@ -42,14 +43,11 @@ class ManagementView(APIView):
     )
     def post(self, request):
         try:
-            data = request.data
-            management = Management(
-                title=data.get('title'),
-                description=data.get('description'),
-                status=data.get('status')
-            )
-            management.save()
-            return JsonResponse({'data': management.to_json(), 'success': True}, status=201)
+            serializer = ManagementSerializer(data=request.data)
+            if serializer.is_valid():
+                serializer.save()
+                return JsonResponse({'data': serializer.data, 'success': True}, status=201)
+            return JsonResponse({'error': serializer.errors, 'success': False}, status=200)
         except Exception as e:
             return JsonResponse({'error': str(e), 'success': False}, status=500)
 
@@ -77,12 +75,11 @@ class ManagementWithIdView(APIView):
     def put(self, request, id):
         try:
             management = Management.objects.get(id=id)
-            data = request.data
-            management.title = data.get('title')
-            management.description = data.get('description')
-            management.status = data.get('status')
-            management.save()
-            return JsonResponse({'data': management.to_json(), 'success': True}, status=200)
+            serializer = ManagementSerializer(management, data=request.data, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                return JsonResponse({'data': serializer.data, 'success': True}, status=200)
+            return JsonResponse({'error': serializer.errors, 'success': False}, status=200)
         except Management.DoesNotExist:
             return JsonResponse({'error': 'No se encontró el registro a actualizar', 'success': False}, status=404)
         except Exception as e:
